@@ -24,6 +24,7 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background-color: #000;
             overscroll-behavior: none; /* 防止手机端下拉刷新影响体验 */
+            -webkit-tap-highlight-color: transparent;
         }
         .font-serif {
             font-family: 'Noto Serif SC', serif;
@@ -53,6 +54,10 @@
         .rotate-y-180 {
             transform: rotateY(180deg);
         }
+        /* 动画关键帧定义 */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes zoomIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
     </style>
 </head>
 <body>
@@ -62,7 +67,7 @@
         const { useState, useEffect, useRef } = React;
 
         // --- 图标组件 (SVG) ---
-        // 为了单文件运行，手动定义 SVG 组件替代 lucide-react
+        // 手动定义 SVG 组件以实现零依赖单文件运行
         const IconBase = ({ children, className, ...props }) => (
             <svg 
                 xmlns="http://www.w3.org/2000/svg" 
@@ -298,9 +303,15 @@
                                 { role: "system", content: "你是一位专业的塔罗牌占卜师，擅长结合牌义进行富有洞察力的解读。" },
                                 { role: "user", content: prompt }
                             ],
-                            temperature: 1.0
+                            temperature: 1.0,
+                            stream: false
                         })
                     });
+
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(`API 请求失败 (Status: ${response.status}) ${errorData.error?.message || ''}`);
+                    }
 
                     const data = await response.json();
                     if (data.choices && data.choices[0]) {
@@ -309,10 +320,11 @@
                             resultsRef.current?.scrollIntoView({ behavior: 'smooth' });
                         }, 100);
                     } else {
-                        setAiAnalysis("星辰似乎受到干扰，请检查密钥或稍后再试。");
+                        throw new Error("API 返回了空数据");
                     }
                 } catch (error) {
-                    setAiAnalysis(`连接神秘领域失败: ${error.message}`);
+                    console.error(error);
+                    setAiAnalysis(`星辰似乎受到干扰: ${error.message} \n\n请检查您的 API Key 是否正确，或者网络连接是否通畅。`);
                 } finally {
                     setIsAnalyzing(false);
                 }
@@ -330,7 +342,6 @@
             const renderMarkdown = (text) => {
                 if (!text) return null;
                 return text.split('\n').map((line, i) => {
-                    // 简单的粗体处理 **text**
                     const parts = line.split(/(\*\*.*?\*\*)/g);
                     return (
                         <div key={i} className="min-h-[1.5em] mb-1">
@@ -425,7 +436,7 @@
                                                 type="password" 
                                                 value={apiKey}
                                                 onChange={(e) => setApiKey(e.target.value)}
-                                                placeholder="请输入密钥"
+                                                placeholder="请输入密钥 "
                                                 className="w-full bg-black/40 border border-slate-700 rounded-lg px-4 py-3 pl-4 focus:border-purple-500 focus:outline-none font-mono text-sm text-white placeholder:text-slate-600 transition-colors"
                                             />
                                         </div>
@@ -602,12 +613,6 @@
                             </div>
                         )}
                     </main>
-                    
-                    <style>{`
-                        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-                        @keyframes slideInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-                        @keyframes zoomIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
-                    `}</style>
                 </div>
             );
         }
