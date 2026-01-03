@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI 塔罗师 - 你的命运指引</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Google Fonts (Noto Serif for mystical feel) -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* 自定义样式补充 */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #000;
+            overscroll-behavior: none; /* 防止手机端下拉刷新影响体验 */
+            -webkit-tap-highlight-color: transparent;
+        }
+        .font-serif {
+            font-family: 'Noto Serif SC', serif;
+        }
+        /* 隐藏滚动条但保留滚动功能 */
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* 3D 翻转效果 */
+        .perspective-1000 {
+            perspective: 1000px;
+        }
+        .perspective-500 {
+            perspective: 500px;
+        }
+        .transform-style-3d {
+            transform-style: preserve-3d;
+        }
+        .backface-hidden {
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+        }
+        .rotate-y-180 {
+            transform: rotateY(180deg);
+        }
+        /* 动画关键帧定义 */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes zoomIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- 图标组件 (SVG) ---
+        // 手动定义 SVG 组件以实现零依赖单文件运行
+        const IconBase = ({ children, className, ...props }) => (
+            <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="24" 
+                height="24" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                className={className} 
+                {...props}
+            >
+                {children}
+            </svg>
+        );
+
+        const Sparkles = (props) => <IconBase {...props}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3 4 6 1 7l3 1 1 3 1-3 3-1-3-1-1-3Z"/><path d="M2 19l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3Z"/></IconBase>;
+        const Moon = (props) => <IconBase {...props}><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></IconBase>;
+        const Sun = (props) => <IconBase {...props}><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></IconBase>;
+        const RotateCcw = (props) => <IconBase {...props}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></IconBase>;
+        const Key = (props) => <IconBase {...props}><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></IconBase>;
+        const Loader2 = (props) => <IconBase {...props}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></IconBase>;
+        const Star = (props) => <IconBase {...props}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></IconBase>;
+        const Wind = (props) => <IconBase {...props}><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></IconBase>;
+        const Droplets = (props) => <IconBase {...props}><path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.8-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z"/><path d="M12.56 6.6A10.97 10.97 0 0 0 14 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.91 4.97"/></IconBase>;
+        const Mountain = (props) => <IconBase {...props}><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></IconBase>;
+        const Flame = (props) => <IconBase {...props}><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.1.2-2.2.6-3.3.3.9.8 1.8 1.9 2.8z"/></IconBase>;
+
+
+        // --- 塔罗牌数据 (22张大阿卡纳) ---
+        const TAROT_DECK = [
+            { id: 0, name: "愚者 (The Fool)", keyword: "新的开始、冒险、纯真", icon: "🤡", element: "风" },
+            { id: 1, name: "魔术师 (The Magician)", keyword: "创造力、技能、意志力", icon: "🪄", element: "风" },
+            { id: 2, name: "女祭司 (The High Priestess)", keyword: "直觉、潜意识、神秘", icon: "📜", element: "水" },
+            { id: 3, name: "皇后 (The Empress)", keyword: "丰饶、母性、自然", icon: "👑", element: "土" },
+            { id: 4, name: "皇帝 (The Emperor)", keyword: "权威、结构、稳固", icon: "🗿", element: "火" },
+            { id: 5, name: "教皇 (The Hierophant)", keyword: "传统、信仰、学习", icon: "🙏", element: "土" },
+            { id: 6, name: "恋人 (The Lovers)", keyword: "爱、和谐、选择", icon: "❤️", element: "风" },
+            { id: 7, name: "战车 (The Chariot)", keyword: "胜利、意志、自控", icon: "🛡️", element: "水" },
+            { id: 8, name: "力量 (Strength)", keyword: "勇气、耐心、同情", icon: "🦁", element: "火" },
+            { id: 9, name: "隐士 (The Hermit)", keyword: "内省、孤独、指引", icon: "🕯️", element: "土" },
+            { id: 10, name: "命运之轮 (Wheel of Fortune)", keyword: "改变、循环、命运", icon: "🎡", element: "火" },
+            { id: 11, name: "正义 (Justice)", keyword: "公平、真理、因果", icon: "⚖️", element: "风" },
+            { id: 12, name: "倒吊人 (The Hanged Man)", keyword: "牺牲、新视角、等待", icon: "🦇", element: "水" },
+            { id: 13, name: "死神 (Death)", keyword: "结束、转变、重生", icon: "💀", element: "水" },
+            { id: 14, name: "节制 (Temperance)", keyword: "平衡、适度、耐心", icon: "🏺", element: "火" },
+            { id: 15, name: "恶魔 (The Devil)", keyword: "束缚、物质、诱惑", icon: "⛓️", element: "土" },
+            { id: 16, name: "高塔 (The Tower)", keyword: "突变、混乱、觉醒", icon: "⚡", element: "火" },
+            { id: 17, name: "星星 (The Star)", keyword: "希望、灵感、宁静", icon: "🌟", element: "风" },
+            { id: 18, name: "月亮 (The Moon)", keyword: "幻觉、恐惧、潜意识", icon: "🌙", element: "水" },
+            { id: 19, name: "太阳 (The Sun)", keyword: "快乐、成功、活力", icon: "☀️", element: "火" },
+            { id: 20, name: "审判 (Judgement)", keyword: "复活、觉醒、宽恕", icon: "🎺", element: "火" },
+            { id: 21, name: "世界 (The World)", keyword: "完成、整合、成就", icon: "🌍", element: "土" }
+        ];
+
+        // --- 组件 ---
+
+        const StarryBackground = () => (
+            <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-[#0f0c29] to-[#020024]"></div>
+                {[...Array(20)].map((_, i) => (
+                    <div 
+                        key={i}
+                        className="absolute rounded-full bg-white animate-pulse"
+                        style={{
+                            top: `${Math.random() * 100}%`,
+                            left: `${Math.random() * 100}%`,
+                            width: `${Math.random() * 3}px`,
+                            height: `${Math.random() * 3}px`,
+                            opacity: Math.random() * 0.7,
+                            animationDuration: `${Math.random() * 3 + 2}s`
+                        }}
+                    />
+                ))}
+                <div className="absolute bottom-0 left-0 w-full h-1/3 bg-gradient-to-t from-purple-900/20 to-transparent"></div>
+            </div>
+        );
+
+        const CardBack = () => (
+            <div className="w-full h-full rounded-lg relative shadow-2xl group overflow-hidden bg-[#1a1b26] border border-yellow-900/50">
+                <div className="absolute inset-1 border-[2px] border-yellow-600/30 rounded-md z-10"></div>
+                <div className="absolute inset-2 border border-yellow-600/10 rounded-sm z-10"></div>
+                <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_50%_50%,_rgba(255,215,0,0.4)_1px,_transparent_1px)] bg-[length:10px_10px]"></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="relative w-12 h-12 flex items-center justify-center">
+                        <div className="absolute inset-0 border border-yellow-500/30 rotate-45 rounded-sm animate-[spin_10s_linear_infinite]"></div>
+                        <div className="absolute inset-0 border border-purple-500/30 rounded-full animate-[ping_3s_ease-in-out_infinite]"></div>
+                        <Moon className="text-yellow-500/80 w-6 h-6 drop-shadow-[0_0_5px_rgba(234,179,8,0.5)]" />
+                    </div>
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-purple-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            </div>
+        );
+
+        const CardFront = ({ card, position }) => {
+            const getElementColor = (el) => {
+                if (el.includes('火') || el === '白羊' || el === '狮子' || el === '射手') return 'from-red-900/20';
+                if (el.includes('水') || el === '巨蟹' || el === '天蝎' || el === '双鱼') return 'from-blue-900/20';
+                if (el.includes('风') || el === '双子' || el === '天秤' || el === '水瓶') return 'from-yellow-900/20';
+                return 'from-emerald-900/20';
+            };
+
+            const getElementIcon = (el) => {
+                if (el.includes('火')) return <Flame className="w-3 h-3 text-red-400" />;
+                if (el.includes('水')) return <Droplets className="w-3 h-3 text-blue-400" />;
+                if (el.includes('风')) return <Wind className="w-3 h-3 text-yellow-400" />;
+                return <Mountain className="w-3 h-3 text-emerald-400" />;
+            };
+
+            return (
+                <div className={`w-full h-full rounded-lg bg-slate-900 border border-yellow-600/40 flex flex-col items-center justify-between p-2 shadow-xl relative overflow-hidden bg-gradient-to-br ${getElementColor(card.element)} to-slate-900`}>
+                    <div className="w-full flex justify-between items-center border-b border-white/10 pb-1 mb-1">
+                        <span className="text-[10px] text-yellow-500/80 font-serif tracking-widest uppercase">{position}</span>
+                        <span className="text-[10px] text-slate-500 font-mono">NO.{card.id}</span>
+                    </div>
+                    <div className="flex-1 w-full flex flex-col items-center justify-center relative my-1">
+                        <div className="absolute inset-0 border border-white/5 rounded-full scale-90"></div>
+                        <div className="text-5xl drop-shadow-2xl filter contrast-125 z-10 transform transition-transform hover:scale-110 duration-300">{card.icon}</div>
+                    </div>
+                    <div className="w-full text-center space-y-1 relative z-10">
+                        <div className="text-yellow-100 font-serif font-bold text-xs leading-tight tracking-wide border-t border-b border-white/10 py-1">
+                            {card.name.split('(')[0]}
+                        </div>
+                        <div className="flex items-center justify-center gap-1 text-[9px] text-slate-400">
+                            {getElementIcon(card.element)}
+                            <span className="truncate max-w-[90%]">{card.keyword}</span>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 主程序 ---
+        function TarotApp() {
+            const [apiKey, setApiKey] = useState('');
+            const [step, setStep] = useState('welcome');
+            const [deck, setDeck] = useState([]);
+            const [selectedCards, setSelectedCards] = useState([]);
+            const [flipped, setFlipped] = useState([false, false, false]);
+            const [aiAnalysis, setAiAnalysis] = useState('');
+            const [isAnalyzing, setIsAnalyzing] = useState(false);
+            const [userQuestion, setUserQuestion] = useState('');
+            
+            const resultsRef = useRef(null);
+
+            useEffect(() => {
+                shuffleDeck();
+            }, []);
+
+            const shuffleDeck = () => {
+                const shuffled = [...TAROT_DECK]
+                    .sort(() => Math.random() - 0.5)
+                    .map(card => ({ ...card, isReversed: Math.random() > 0.8 }));
+                setDeck(shuffled);
+            };
+
+            const handleStart = () => {
+                if (!apiKey) {
+                    setStep('input-key');
+                } else {
+                    setStep('shuffling');
+                }
+            };
+
+            const saveKeyAndContinue = () => {
+                if(apiKey.trim().length > 5) {
+                    setStep('shuffling');
+                }
+            };
+
+            const handleSelectCard = (index) => {
+                if (selectedCards.length < 3) {
+                    const card = deck[index];
+                    const newSelection = [...selectedCards, card];
+                    setSelectedCards(newSelection);
+                    
+                    if (newSelection.length === 3) {
+                        setTimeout(() => setStep('reading'), 800);
+                    }
+                }
+            };
+
+            const revealCards = () => {
+                [0, 1, 2].forEach((i) => {
+                    setTimeout(() => {
+                        setFlipped(prev => {
+                            const newFlipped = [...prev];
+                            newFlipped[i] = true;
+                            return newFlipped;
+                        });
+                    }, i * 800);
+                });
+            };
+
+            useEffect(() => {
+                if (step === 'reading') {
+                    revealCards();
+                }
+            }, [step]);
+
+            const callDeepSeek = async () => {
+                if (!apiKey) return;
+                setIsAnalyzing(true);
+                setAiAnalysis('');
+
+                const spreadMeanings = ['过去 (The Past)', '现在 (The Present)', '未来 (The Future)'];
+                
+                const prompt = `
+                    我正在进行塔罗牌占卜。我的问题是："${userQuestion || '我的近期运势如何？'}"。
+                    
+                    我抽到了以下三张牌（圣三角牌阵）：
+                    1. ${spreadMeanings[0]}: ${selectedCards[0].name} ${selectedCards[0].isReversed ? '(逆位)' : '(正位)'} - 关键词: ${selectedCards[0].keyword}
+                    2. ${spreadMeanings[1]}: ${selectedCards[1].name} ${selectedCards[1].isReversed ? '(逆位)' : '(正位)'} - 关键词: ${selectedCards[1].keyword}
+                    3. ${spreadMeanings[2]}: ${selectedCards[2].name} ${selectedCards[2].isReversed ? '(逆位)' : '(正位)'} - 关键词: ${selectedCards[2].keyword}
+                    
+                    请作为一位神秘、富有同理心且充满智慧的塔罗师，为我解读这三张牌的联系，并给出对未来的指引。
+                    请用Markdown格式输出，小标题请用加粗。语气要温柔、治愈且带有一点神秘感。
+                    请先总结牌面整体能量，再分牌解读，最后给出建议。
+                `;
+
+                try {
+                    const response = await fetch('https://api.deepseek.com/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${apiKey}`
+                        },
+                        body: JSON.stringify({
+                            model: "deepseek-chat",
+                            messages: [
+                                { role: "system", content: "你是一位专业的塔罗牌占卜师，擅长结合牌义进行富有洞察力的解读。" },
+                                { role: "user", content: prompt }
+                            ],
+                            temperature: 1.0,
+                            stream: false
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(`API 请求失败 (Status: ${response.status}) ${errorData.error?.message || ''}`);
+                    }
+
+                    const data = await response.json();
+                    if (data.choices && data.choices[0]) {
+                        setAiAnalysis(data.choices[0].message.content);
+                        setTimeout(() => {
+                            resultsRef.current?.scrollIntoView({ behavior: 'smooth' });
+                        }, 100);
+                    } else {
+                        throw new Error("API 返回了空数据");
+                    }
+                } catch (error) {
+                    console.error(error);
+                    setAiAnalysis(`星辰似乎受到干扰: ${error.message} \n\n请检查您的 API Key 是否正确，或者网络连接是否通畅。`);
+                } finally {
+                    setIsAnalyzing(false);
+                }
+            };
+
+            const resetApp = () => {
+                setStep('welcome');
+                setSelectedCards([]);
+                setFlipped([false, false, false]);
+                setAiAnalysis('');
+                shuffleDeck();
+            };
+
+            // Markdown 渲染简化版 (处理加粗和换行)
+            const renderMarkdown = (text) => {
+                if (!text) return null;
+                return text.split('\n').map((line, i) => {
+                    const parts = line.split(/(\*\*.*?\*\*)/g);
+                    return (
+                        <div key={i} className="min-h-[1.5em] mb-1">
+                            {parts.map((part, j) => {
+                                if (part.startsWith('**') && part.endsWith('**')) {
+                                    return <strong key={j} className="text-purple-300">{part.slice(2, -2)}</strong>;
+                                }
+                                return part;
+                            })}
+                        </div>
+                    );
+                });
+            };
+
+            return (
+                <div className="min-h-screen bg-black text-slate-200 font-sans selection:bg-purple-500 selection:text-white pb-10 relative overflow-x-hidden">
+                    <StarryBackground />
+                    
+                    {/* Header */}
+                    <header className="fixed top-0 w-full z-50 bg-black/50 backdrop-blur-md border-b border-white/5 px-4 py-3 flex justify-between items-center shadow-lg">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-indigo-900 flex items-center justify-center border border-purple-400/30">
+                                <Moon className="w-4 h-4 text-purple-200" />
+                            </div>
+                            <span className="font-bold text-lg text-transparent bg-clip-text bg-gradient-to-r from-purple-200 to-pink-200 tracking-wider">
+                                塔罗师CT
+                            </span>
+                        </div>
+                        <button onClick={resetApp} className="p-2 hover:bg-white/10 rounded-full transition-all active:rotate-180 duration-500">
+                            <RotateCcw className="w-5 h-5 text-slate-400" />
+                        </button>
+                    </header>
+
+                    <main className="pt-24 px-4 container mx-auto max-w-md min-h-[85vh] flex flex-col relative z-10">
+                        
+                        {/* Welcome Step */}
+                        {step === 'welcome' && (
+                            <div className="flex-1 flex flex-col items-center justify-center text-center space-y-10 animate-[fadeIn_0.7s_ease-out]">
+                                <div className="relative group">
+                                    <div className="absolute inset-0 bg-purple-600 blur-[60px] opacity-20 rounded-full animate-pulse group-hover:opacity-30 transition-opacity"></div>
+                                    <div className="relative z-10 w-32 h-32 rounded-full border border-purple-500/30 flex items-center justify-center bg-black/40 backdrop-blur-sm shadow-[0_0_30px_rgba(168,85,247,0.2)]">
+                                        <Sun className="w-16 h-16 text-yellow-100/90 animate-[spin_60s_linear_infinite]" />
+                                    </div>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                    <h1 className="text-4xl font-serif text-white tracking-wide drop-shadow-lg">心之所向</h1>
+                                    <p className="text-purple-300/80 font-light text-sm tracking-widest">让古老的智慧指引你的未来</p>
+                                </div>
+                                
+                                <div className="w-full space-y-4">
+                                    <input
+                                        type="text"
+                                        placeholder="在此刻写下你的困惑..."
+                                        className="w-full bg-slate-900/60 border border-slate-700/50 rounded-xl px-4 py-4 text-center text-purple-100 placeholder:text-slate-600 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 transition-all backdrop-blur-sm"
+                                        value={userQuestion}
+                                        onChange={(e) => setUserQuestion(e.target.value)}
+                                    />
+
+                                    <button 
+                                        onClick={handleStart}
+                                        className="w-full relative group overflow-hidden bg-gradient-to-r from-purple-900 to-indigo-900 hover:from-purple-800 hover:to-indigo-800 border border-purple-500/30 text-white font-medium py-4 rounded-xl shadow-[0_0_20px_rgba(88,28,135,0.4)] transition-all active:scale-[0.98]"
+                                    >
+                                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+                                        <div className="flex items-center justify-center gap-2">
+                                            <Sparkles className="w-5 h-5 text-purple-300" />
+                                            <span className="tracking-widest">开启仪式</span>
+                                        </div>
+                                    </button>
+                                </div>
+
+                                <p className="text-[10px] text-slate-600 uppercase tracking-[0.2em] opacity-60">
+                                    The Past · The Present · The Future
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Input Key Step */}
+                        {step === 'input-key' && (
+                            <div className="flex-1 flex flex-col items-center justify-center animate-[fadeIn_0.5s_ease-out]">
+                                <div className="bg-slate-900/60 backdrop-blur-md p-8 rounded-2xl border border-white/10 w-full shadow-2xl">
+                                    <div className="flex flex-col items-center mb-6 space-y-3">
+                                        <div className="p-3 bg-purple-500/10 rounded-full">
+                                            <Key className="w-8 h-8 text-purple-400" />
+                                        </div>
+                                        <h2 className="text-xl font-bold text-white">连接 塔罗师CT</h2>
+                                    </div>
+                                    
+                                    <div className="space-y-4">
+                                        <div className="relative">
+                                            <input 
+                                                type="password" 
+                                                value={apiKey}
+                                                onChange={(e) => setApiKey(e.target.value)}
+                                                placeholder="请输入密钥 "
+                                                className="w-full bg-black/40 border border-slate-700 rounded-lg px-4 py-3 pl-4 focus:border-purple-500 focus:outline-none font-mono text-sm text-white placeholder:text-slate-600 transition-colors"
+                                            />
+                                        </div>
+                                        
+                                        <button 
+                                            onClick={saveKeyAndContinue}
+                                            disabled={apiKey.length < 5}
+                                            className="w-full bg-purple-600/80 hover:bg-purple-500 disabled:bg-slate-800 disabled:text-slate-600 text-white py-3 rounded-lg font-medium transition-all shadow-lg"
+                                        >
+                                            确认连接
+                                        </button>
+                                        
+                                        <div className="text-center">
+                                            <button 
+                                                onClick={() => setStep('shuffling')}
+                                                className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                                            >
+                                                暂不连接，仅体验抽牌
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="mt-6 pt-6 border-t border-white/5 text-[10px] text-slate-500 text-center leading-relaxed">
+                                        本程序答案仅供参考，切勿恋爱脑<br/>
+                                        所有问题不会记录，不涉及个人隐私，请放心使用。
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Shuffling Step */}
+                        {step === 'shuffling' && (
+                            <div className="flex-1 flex flex-col items-center justify-center space-y-6 animate-[fadeIn_0.5s_ease-out]">
+                                <div className="text-center space-y-2 mb-2">
+                                    <h2 className="text-xl text-white font-serif tracking-wide">命运指引</h2>
+                                    <p className="text-sm text-purple-300/70">
+                                        请凭直觉选取 <span className="font-bold text-white border-b border-purple-500 mx-1">{3 - selectedCards.length}</span> 张牌
+                                    </p>
+                                </div>
+                                
+                                <div className="grid grid-cols-4 gap-3 w-full max-h-[55vh] overflow-y-auto p-4 scrollbar-hide perspective-500">
+                                    {deck.map((card, index) => {
+                                        const isSelected = selectedCards.includes(card);
+                                        if (isSelected) return <div key={card.id} className="aspect-[2/3] opacity-0 pointer-events-none"></div>;
+
+                                        return (
+                                            <button
+                                                key={card.id}
+                                                onClick={() => handleSelectCard(index)}
+                                                className="aspect-[2/3] w-full transform hover:-translate-y-2 hover:scale-105 transition-all duration-300 group"
+                                                style={{ animationDelay: `${index * 50}ms` }}
+                                            >
+                                                <CardBack />
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                
+                                <div className="h-28 w-full flex justify-center gap-4 items-center bg-white/5 rounded-2xl border border-white/5 backdrop-blur-sm mt-4">
+                                    {selectedCards.map((card, i) => (
+                                        <div key={`selected-${i}`} className="w-16 h-24 shadow-[0_0_15px_rgba(0,0,0,0.5)] animate-[zoomIn_0.3s_ease-out]">
+                                            <CardBack />
+                                        </div>
+                                    ))}
+                                    {[...Array(3 - selectedCards.length)].map((_, i) => (
+                                        <div key={`empty-${i}`} className="w-16 h-24 border border-dashed border-white/10 rounded-lg bg-white/5 flex items-center justify-center">
+                                            <span className="text-white/10 text-xl font-serif">{3 - selectedCards.length - i}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Reading Step */}
+                        {step === 'reading' && (
+                            <div className="flex-1 flex flex-col py-4 animate-[fadeIn_0.7s_ease-out]">
+                                <div className="text-center mb-8">
+                                    <h2 className="text-2xl text-transparent bg-clip-text bg-gradient-to-r from-purple-200 via-pink-200 to-purple-200 font-serif tracking-widest animate-pulse">
+                                        启示录
+                                    </h2>
+                                    <div className="w-16 h-[1px] bg-gradient-to-r from-transparent via-purple-500 to-transparent mx-auto mt-2"></div>
+                                </div>
+
+                                <div className="flex justify-center gap-2 mb-10 h-44 sm:h-52 px-2">
+                                    {selectedCards.map((card, index) => {
+                                        const positions = ['过去', '现在', '未来'];
+                                        return (
+                                            <div key={card.id} className="relative w-1/3 max-w-[110px] perspective-1000 group">
+                                                <div 
+                                                    className={`relative w-full h-full transition-transform duration-[1500ms] transform-style-3d cubic-bezier(0.4, 0.0, 0.2, 1) ${flipped[index] ? 'rotate-y-180' : ''}`}
+                                                >
+                                                    <div className="absolute inset-0 backface-hidden shadow-2xl">
+                                                        <CardBack />
+                                                    </div>
+                                                    <div className="absolute inset-0 backface-hidden rotate-y-180 shadow-[0_0_20px_rgba(168,85,247,0.3)] rounded-lg">
+                                                        <CardFront card={card} position={positions[index]} />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                <div className="space-y-3 mb-10 px-2">
+                                    {flipped[2] && selectedCards.map((card, idx) => (
+                                        <div key={idx} className="flex items-center gap-4 bg-slate-900/40 backdrop-blur-sm p-4 rounded-xl border border-white/5 animate-[slideInUp_0.7s_ease-out] hover:bg-slate-900/60 transition-colors" style={{animationDelay: `${idx * 200}ms`, animationFillMode: 'backwards'}}>
+                                            <div className="text-3xl filter drop-shadow-md">{card.icon}</div>
+                                            <div className="flex-1">
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <div className="text-sm text-purple-300 font-bold">
+                                                        {['过去', '现在', '未来'][idx]} · {card.name}
+                                                    </div>
+                                                    {card.isReversed && <span className="text-[10px] bg-red-900/30 text-red-300 px-1.5 py-0.5 rounded border border-red-900/50">逆位</span>}
+                                                </div>
+                                                <div className="text-xs text-slate-400 font-light">{card.keyword}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="mt-auto mb-6" ref={resultsRef}>
+                                    {!aiAnalysis && !isAnalyzing && flipped[2] && (
+                                        <div className="text-center space-y-4 animate-[fadeIn_1s_ease-out_0.5s_both]">
+                                            <div className="w-full h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+                                            <p className="text-slate-400 text-xs tracking-wider">星辰已就位，等待解读</p>
+                                            
+                                            {apiKey ? (
+                                                <button 
+                                                    onClick={callDeepSeek}
+                                                    className="w-full bg-gradient-to-r from-emerald-900/80 to-teal-900/80 hover:from-emerald-800 hover:to-teal-800 text-emerald-100 border border-emerald-500/30 font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)] flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                                                >
+                                                    <Sparkles className="w-5 h-5 animate-pulse" />
+                                                    聆听神谕
+                                                </button>
+                                            ) : (
+                                                <button 
+                                                    onClick={() => setStep('input-key')}
+                                                    className="w-full py-3 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-400 text-sm hover:bg-slate-800 transition-colors"
+                                                >
+                                                    配置 Key 以获取深度解读
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {isAnalyzing && (
+                                        <div className="flex flex-col items-center justify-center py-10 space-y-6">
+                                            <div className="relative">
+                                                <div className="absolute inset-0 bg-purple-500 blur-xl opacity-20 animate-pulse"></div>
+                                                <Loader2 className="w-10 h-10 text-purple-400 animate-spin relative z-10" />
+                                            </div>
+                                            <p className="text-purple-200/80 text-xs tracking-[0.2em] animate-pulse">连接宇宙意识中...</p>
+                                        </div>
+                                    )}
+
+                                    {aiAnalysis && (
+                                        <div className="bg-slate-900/60 backdrop-blur-md border border-purple-500/20 rounded-2xl p-6 shadow-2xl animate-[slideInUp_1s_ease-out] ring-1 ring-purple-500/10">
+                                            <div className="flex items-center gap-2 mb-6 border-b border-white/5 pb-4">
+                                                <Star className="w-4 h-4 text-purple-400 fill-purple-400" />
+                                                <h3 className="font-bold text-purple-100 tracking-wider">解读结果</h3>
+                                            </div>
+                                            <div className="prose prose-invert prose-sm max-w-none text-slate-300 leading-relaxed text-justify">
+                                                {renderMarkdown(aiAnalysis)}
+                                            </div>
+                                            <div className="mt-8 text-center pt-4 border-t border-white/5">
+                                                <button onClick={resetApp} className="text-xs text-slate-500 hover:text-white transition-colors flex items-center justify-center gap-1 mx-auto group">
+                                                    <RotateCcw className="w-3 h-3 group-hover:-rotate-180 transition-transform duration-500" />
+                                                    开始新的旅程
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </main>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<TarotApp />);
+    </script>
+</body>
+</html>
